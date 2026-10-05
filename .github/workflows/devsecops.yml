@@ -143,6 +143,7 @@ jobs:
             echo "${{ secrets.GHCR_PAT || secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
             
             cd ~/devsecops-elk-project || cd /opt/secops-guard
+            git pull origin master || git pull origin main || true
             
             # Export image coordinates
             export CI_REGISTRY_IMAGE="ghcr.io/jaguarscodehub/devsecops-elk-project"
