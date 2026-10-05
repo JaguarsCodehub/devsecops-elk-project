@@ -1,6 +1,7 @@
 const express = require('express');
 const helmet = require('helmet');
 const cors = require('cors');
+const crypto = require('crypto');
 require('dotenv').config();
 
 const logger = require('./logger/logger');
@@ -57,8 +58,8 @@ app.use(async (req, res, next) => {
 // ---------------------------------------------------------------------------
 // MIDDLEWARE 2: Request Inspection & Exploit Signature Filter
 // ---------------------------------------------------------------------------
-const SQLI_REGEX = /(\b(SELECT|UNION|INSERT|DELETE|UPDATE|DROP|ALTER)\b|--|\/\*|\*\/|' OR '1'='1|1=1)/i;
-const XSS_REGEX = /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/i;
+const SQLI_REGEX = /\b(SELECT|UNION|INSERT|DELETE|UPDATE|DROP|ALTER)\b|--|\/\*|\*\/|' OR '1'='1/i;
+const XSS_REGEX = /<script\b/i;
 
 app.use(async (req, res, next) => {
   const ip = getClientIp(req);
@@ -113,10 +114,10 @@ app.post('/api/auth/login', async (req, res) => {
   const { username, password } = req.body || {};
   const ip = getClientIp(req);
 
-  const DEMO_USER = process.env.ADMIN_USER || 'admin';
-  const DEMO_PASSWORD = process.env.ADMIN_PASSWORD || 'SecOpsDemoPass2026!';
+  const expectedUser = process.env.ADMIN_USER || 'admin';
+  const expectedPassword = process.env.ADMIN_PASSWORD;
 
-  if (username === DEMO_USER && password === DEMO_PASSWORD) {
+  if (expectedPassword && username === expectedUser && password === expectedPassword) {
     await publishSecurityEvent({
       eventType: 'AUTH_SUCCESS',
       severity: 'LOW',
@@ -127,7 +128,7 @@ app.post('/api/auth/login', async (req, res) => {
 
     return res.json({
       message: 'Authentication successful',
-      token: 'secops-demo-session-token'
+      token: crypto.randomUUID()
     });
   }
 
@@ -149,7 +150,7 @@ app.get('/api/protected/resource', async (req, res) => {
   const authHeader = req.headers['authorization'];
   const ip = getClientIp(req);
 
-  if (!authHeader || !authHeader.startsWith('Bearer secops-demo-jwt-token-xyz')) {
+  if (!authHeader || !authHeader.startsWith('Bearer ') || authHeader.length < 15) {
     await publishSecurityEvent({
       eventType: 'UNAUTHORIZED_ACCESS',
       severity: 'MEDIUM',
