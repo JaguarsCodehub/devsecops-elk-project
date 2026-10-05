@@ -23,8 +23,10 @@ WORKDIR /usr/src/app
 ENV NODE_ENV=production \
     PORT=8000
 
-# Install curl for container health check
-RUN apk --no-cache add curl
+# Upgrade OS packages (patches libcrypto3/libssl3), add curl, and strip unused npm from runtime
+RUN apk --no-cache upgrade && \
+    apk --no-cache add curl && \
+    rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx /root/.npm
 
 # Copy dependencies and application from builder
 COPY --from=builder /usr/src/app/node_modules ./node_modules
