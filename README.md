@@ -1,7 +1,7 @@
 # 🛡️ SecOps-Guard
 
 > **Real-Time DevSecOps SIEM & Threat Anomaly Detection Pipeline**  
-> Powered by **GitLab CI/CD**, **Apache Kafka (KRaft)**, **Redis**, and the **Elastic Stack (Elasticsearch 9.1.0, Logstash, Kibana, Filebeat, Metricbeat)**.
+> Powered by **GitHub Actions**, **Apache Kafka (KRaft)**, **Redis**, and the **Elastic Stack (Elasticsearch 9.1.0, Logstash, Kibana, Filebeat, Metricbeat)**.
 
 ---
 
@@ -70,18 +70,19 @@ This script will:
 
 ---
 
-## 🔒 GitLab CI/CD Security Pipeline
+## 🔒 GitHub Actions DevSecOps Pipeline
 
-The `.gitlab-ci.yml` pipeline enforces 3 automated security stages on every commit:
+The `.github/workflows/devsecops.yml` workflow enforces 3 automated security stages on every pull request and push:
 - **`security-audit`**:
-  - `gitleaks`: Scans commits for secret leaks and private keys.
-  - `semgrep`: Performs automated SAST analysis on application code.
+  - `gitleaks`: Scans all commits for secret leaks and private keys.
+  - `semgrep`: Performs automated SAST analysis on application code for OWASP Top 10 vulnerabilities.
 - **`build-and-scan`**:
   - Builds the unprivileged multi-stage Alpine Docker image.
-  - Runs `trivy image` and halts the build if any `HIGH` or `CRITICAL` vulnerabilities exist.
-  - Pushes verified images to the GitLab Container Registry.
+  - Runs `trivy` to audit dependencies, halting the pipeline if any `HIGH` or `CRITICAL` vulnerabilities exist.
+  - Pushes verified images to the **GitHub Container Registry (GHCR)** (`ghcr.io`).
 - **`deploy`**:
-  - Automatically provisions or updates containers on AWS EC2 (`t3.xlarge`) over SSH.
+  - Automatically connects to AWS EC2 (`t3.xlarge`) over SSH.
+  - Executes a zero-downtime rolling reload (`docker compose up -d --no-deps app`) and runs an automated smoke test loop against `/health`.
 
 ---
 
