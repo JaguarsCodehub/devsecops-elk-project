@@ -8,7 +8,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  IMAGE_NAME: jaguarscodehub/devsecops-elk-project
 
 jobs:
   # ==============================================================================
@@ -145,7 +145,7 @@ jobs:
             cd ~/devsecops-elk-project || cd /opt/secops-guard
             
             # Export image coordinates
-            export CI_REGISTRY_IMAGE="ghcr.io/${{ github.repository }}"
+            export CI_REGISTRY_IMAGE="ghcr.io/jaguarscodehub/devsecops-elk-project"
             export IMAGE_TAG="latest"
             
             # Pull new app image from GHCR
