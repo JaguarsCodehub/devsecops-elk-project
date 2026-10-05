@@ -73,7 +73,6 @@ This script will:
 ## 🔒 GitHub Actions DevSecOps Pipeline
 
 The `.github/workflows/devsecops.yml` workflow enforces 3 automated security stages on every pull request and push:
-'added secrets now'
 - **`security-audit`**:
   - `gitleaks`: Scans all commits for secret leaks and private keys.
   - `semgrep`: Performs automated SAST analysis on application code for OWASP Top 10 vulnerabilities.
