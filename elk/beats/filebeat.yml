@@ -1,0 +1,36 @@
+# ==============================================================================
+# Filebeat 9.1.0: Harvest SecOps-Guard Container Logs -> Logstash
+# Uses modern 'filestream' input with container parser (replaces deprecated 'container' input)
+# ==============================================================================
+
+filebeat.autodiscover:
+  providers:
+    - type: docker
+      hints.enabled: false
+      templates:
+        - condition:
+            contains.docker.container.name: "secops"
+          config:
+            - type: filestream
+              id: secops-${data.docker.container.id}
+              paths:
+                - /var/lib/docker/containers/${data.docker.container.id}/*.log
+              parsers:
+                - container:
+                    stream: all
+                    format: auto
+
+processors:
+  # Attach container metadata so logs can be filtered in Kibana
+  - add_docker_metadata:
+      host: "unix:///var/run/docker.sock"
+  # Drop bookkeeping fields to minimize Elasticsearch storage
+  - drop_fields:
+      fields: ["agent.ephemeral_id", "agent.id", "agent.version", "ecs.version"]
+      ignore_missing: true
+
+# Ship logs to Logstash on port 5044
+output.logstash:
+  hosts: ["logstash:5044"]
+
+logging.level: info

@@ -1,0 +1,12 @@
+node_modules
+npm-debug.log
+.git
+.gitignore
+.dockerignore
+.gitlab-ci.yml
+.env
+.env.example
+README.md
+devsecops_project_plan.md
+elk
+scripts

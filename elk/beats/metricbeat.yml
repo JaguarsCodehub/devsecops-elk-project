@@ -1,0 +1,33 @@
+# ==============================================================================
+# Metricbeat 9.1.0: Ship Docker Container & Host Metrics -> Elasticsearch
+# Automatically sets up Kibana dashboards for system and container telemetry
+# ==============================================================================
+
+metricbeat.modules:
+  # 1. Per-container CPU, Memory, Disk I/O, Network
+  - module: docker
+    metricsets: ["container", "cpu", "diskio", "memory", "network"]
+    hosts: ["unix:///var/run/docker.sock"]
+    period: 10s
+    enabled: true
+
+  # 2. Elasticsearch internal node health
+  - module: elasticsearch
+    metricsets: ["node", "node_stats", "index"]
+    hosts: ["http://elasticsearch:9200"]
+    period: 30s
+    enabled: true
+
+processors:
+  - add_docker_metadata: ~
+
+output.elasticsearch:
+  hosts: ["${ES_HOST}"]
+
+# Preload Kibana Metricbeat dashboards
+setup.kibana:
+  host: "${KIBANA_HOST}"
+setup.dashboards.enabled: ${METRICBEAT_SETUP_DASHBOARDS:true}
+setup.ilm.enabled: false
+
+logging.level: info

@@ -1,0 +1,2 @@
+- pipeline.id: secops-logs
+  path.config: "/usr/share/logstash/pipeline/secops-logs.conf"

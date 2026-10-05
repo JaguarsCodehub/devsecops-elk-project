@@ -1,0 +1,189 @@
+
+networks:
+  secops-net:
+    driver: bridge
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # 1. SEARCH ENGINE & SIEM (ELASTICSEARCH & KIBANA)
+  # ---------------------------------------------------------------------------
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:${STACK_VERSION:-9.1.0}
+    container_name: elasticsearch
+    environment:
+      - node.name=elasticsearch
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - xpack.license.self_generated.type=basic
+      - bootstrap.memory_lock=true
+      - ES_JAVA_OPTS=-Xms1g -Xmx1g
+    ulimits:
+      memlock: { soft: -1, hard: -1 }
+    ports:
+      - "9200:9200"
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+    networks:
+      - secops-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -qE '\"status\":\"(green|yellow)\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 40s
+    restart: unless-stopped
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:${STACK_VERSION:-9.1.0}
+    container_name: kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - TELEMETRY_OPTIN=false
+      - TELEMETRY_ENABLED=false
+      - XPACK_SECURITY_SHOWINSECURECLUSTERWARNING=false
+    ports:
+      - "5601:5601"
+    depends_on:
+      elasticsearch: { condition: service_healthy }
+    networks:
+      - secops-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:5601/api/status | grep -q '\"level\":\"available\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 40
+      start_period: 60s
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # 2. LOG INGESTION & PIPELINE (LOGSTASH & BEATS)
+  # ---------------------------------------------------------------------------
+  logstash:
+    image: docker.elastic.co/logstash/logstash:${STACK_VERSION:-9.1.0}
+    container_name: logstash
+    environment:
+      - ES_HOST=http://elasticsearch:9200
+      - LS_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - "5044:5044"
+    volumes:
+      - ./elk/logstash/pipeline:/usr/share/logstash/pipeline:ro
+      - ./elk/logstash/config/pipelines.yml:/usr/share/logstash/config/pipelines.yml:ro
+      - ./elk/logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml:ro
+      - ./elk/logstash/templates:/usr/share/logstash/templates:ro
+    depends_on:
+      elasticsearch: { condition: service_healthy }
+    networks:
+      - secops-net
+    restart: unless-stopped
+
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:${STACK_VERSION:-9.1.0}
+    container_name: filebeat
+    user: root
+    command: ["filebeat", "-e", "--strict.perms=false"]
+    volumes:
+      - ./elk/beats/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - filebeatdata:/usr/share/filebeat/data
+    depends_on:
+      - logstash
+    networks:
+      - secops-net
+    restart: unless-stopped
+
+  metricbeat:
+    image: docker.elastic.co/beats/metricbeat:${STACK_VERSION:-9.1.0}
+    container_name: metricbeat
+    user: root
+    command: ["metricbeat", "-e", "--strict.perms=false"]
+    environment:
+      - ES_HOST=http://elasticsearch:9200
+      - KIBANA_HOST=http://kibana:5601
+      - METRICBEAT_SETUP_DASHBOARDS=${METRICBEAT_SETUP_DASHBOARDS:-false}
+    volumes:
+      - ./elk/beats/metricbeat.yml:/usr/share/metricbeat/metricbeat.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /sys/fs/cgroup:/hostfs/sys/fs/cgroup:ro
+      - /proc:/hostfs/proc:ro
+      - metricbeatdata:/usr/share/metricbeat/data
+    depends_on:
+      - kibana
+      - elasticsearch
+    networks:
+      - secops-net
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # 3. EVENT STREAMING & ACTIVE STATE STORE (KAFKA & REDIS)
+  # ---------------------------------------------------------------------------
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT'
+      KAFKA_ADVERTISED_LISTENERS: 'PLAINTEXT://kafka:9092'
+      KAFKA_PROCESS_ROLES: 'broker,controller'
+      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@kafka:9093'
+      KAFKA_LISTENERS: 'PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093'
+      KAFKA_INTER_BROKER_LISTENER_NAME: 'PLAINTEXT'
+      KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
+      CLUSTER_ID: 'MkU3OEVBNTcwNTJENDM2Qk'
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_HEAP_OPTS: "-Xms512m -Xmx512m"
+    networks:
+      - secops-net
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 9092 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 25s
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}", "--appendonly", "yes"]
+    networks:
+      - secops-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # 4. SECOPS APPLICATION GATEWAY & ANOMALY DETECTION ENGINE
+  # ---------------------------------------------------------------------------
+  app:
+    build: .
+    image: ${CI_REGISTRY_IMAGE:-secops-guard}:${IMAGE_TAG:-latest}
+    container_name: secops-app
+    ports:
+      - "80:8000"
+    environment:
+      PORT: 8000
+      NODE_ENV: production
+      SERVICE_NAME: secops-guard
+      KAFKA_BROKER: kafka:9092
+      KAFKA_TOPIC: security.audit.events
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    depends_on:
+      kafka: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    networks:
+      - secops-net
+    restart: unless-stopped
+
+volumes:
+  esdata:
+  filebeatdata:
+  metricbeatdata:

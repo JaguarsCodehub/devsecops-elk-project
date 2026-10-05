@@ -1,0 +1,23 @@
+{
+  "index_patterns": ["secops-logs-*"],
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 0
+  },
+  "mappings": {
+    "properties": {
+      "@timestamp": { "type": "date" },
+      "log_level": { "type": "keyword" },
+      "service": { "type": "keyword" },
+      "event_type": { "type": "keyword" },
+      "severity": { "type": "keyword" },
+      "client_ip": { "type": "ip" },
+      "http_path": { "type": "keyword" },
+      "security_action": { "type": "keyword" },
+      "target_user": { "type": "keyword" },
+      "is_security_event": { "type": "boolean" },
+      "log_message": { "type": "text" },
+      "tags": { "type": "keyword" }
+    }
+  }
+}
