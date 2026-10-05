@@ -1,0 +1,12 @@
+# Ignore test scripts with mock attack payloads
+scripts/
+simulate-attacks.sh
+
+# Ignore third-party ELK configs
+elk/
+
+# Ignore local environment files and docs
+.env
+.env.example
+*.md
+node_modules/

@@ -113,8 +113,10 @@ app.post('/api/auth/login', async (req, res) => {
   const { username, password } = req.body || {};
   const ip = getClientIp(req);
 
-  // Hardcoded demo credentials for illustration
-  if (username === 'admin' && password === 'P@ssw0rdSecOps2026!') {
+  const DEMO_USER = process.env.ADMIN_USER || 'admin';
+  const DEMO_PASSWORD = process.env.ADMIN_PASSWORD || 'SecOpsDemoPass2026!';
+
+  if (username === DEMO_USER && password === DEMO_PASSWORD) {
     await publishSecurityEvent({
       eventType: 'AUTH_SUCCESS',
       severity: 'LOW',
@@ -125,7 +127,7 @@ app.post('/api/auth/login', async (req, res) => {
 
     return res.json({
       message: 'Authentication successful',
-      token: 'secops-demo-jwt-token-xyz'
+      token: 'secops-demo-session-token'
     });
   }
 

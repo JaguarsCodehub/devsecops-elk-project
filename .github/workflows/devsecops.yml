@@ -38,7 +38,7 @@ jobs:
       - name: Run Semgrep SAST Scan
         run: |
           docker run --rm -v $(pwd):/src returntocorp/semgrep \
-            semgrep scan --config auto --error --json -o /src/semgrep-report.json
+            semgrep scan --config auto --error /src/src --json -o /src/semgrep-report.json
 
       - name: Upload Semgrep Audit Artifact
         uses: actions/upload-artifact@v4
