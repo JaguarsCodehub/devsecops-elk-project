@@ -1,2 +1,4 @@
-http.host: "0.0.0.0"
+# Logstash 8+ renamed http.* to api.* -- using the old name is a fatal startup error
+api.http.host: "0.0.0.0"
+log.level: info
 xpack.monitoring.enabled: false
