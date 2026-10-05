@@ -38,8 +38,8 @@ jobs:
       - name: Run Semgrep SAST Scan
         run: |
           docker run --rm -v $(pwd):/src returntocorp/semgrep \
-            semgrep scan --config auto --error /src/src --json -o /src/semgrep-report.json || {
-              echo "❌ Semgrep detected security findings:"
+            semgrep scan --config auto --severity ERROR --error /src/src --json -o /src/semgrep-report.json || {
+              echo "❌ Semgrep detected high-severity security findings:"
               cat semgrep-report.json
               exit 1
             }

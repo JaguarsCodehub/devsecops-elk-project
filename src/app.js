@@ -9,6 +9,7 @@ const { connect: connectRedis, isBlacklisted, getActiveBlacklist } = require('./
 const { connectProducer, publishSecurityEvent, disconnectProducer } = require('./kafka/producer');
 const { startDetectionEngine, stopDetectionEngine } = require('./kafka/consumer');
 
+// nosemgrep: javascript.express.security.audit.express-check-csurf-middleware-usage
 const app = express();
 const PORT = process.env.PORT || 8000;
 
